@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+/* Tokens visuais do CRM: use estas classes (bg-surface, text-muted...) em vez de cores soltas. */
+@theme {
+  --color-background: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-border: #e6e6e3;
+  --color-ink: #1f2328;
+  --color-muted: #6b7076;
+  --color-primary: #2f6fdf;
+  --color-success: #2e9e6a;
+  --color-warning: #c98a16;
+  --color-danger: #d14b4b;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  @apply bg-background text-ink antialiased;
+}
