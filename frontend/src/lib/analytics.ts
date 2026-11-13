@@ -1,4 +1,4 @@
-import { apiGet, apiPatch } from './api'
+import { apiGet } from './api'
 import type { Stage } from './deals'
 
 // Mirrors OverviewOut / RuleOut in backend/app/schemas.py. Money values are decimal strings.
@@ -23,11 +23,35 @@ export interface RuleBlocker {
   params: Record<string, string>
   deals: number
   value: string
+  avg_days_stuck: number
+}
+
+export interface OverdueDeal {
+  deal_id: number
+  title: string
+  company: string
+  owner: string | null
+  stage: Stage
+  value: string
+  close_date: string // YYYY-MM-DD
+  days_overdue: number
+}
+
+export interface LostDeal {
+  deal_id: number
+  title: string
+  company: string
+  owner: string | null
+  value: string
+  lost_at: string | null
+  lost_from_stage: Stage | null
+  notes: string | null // why it was lost, in the rep's words
 }
 
 export interface Overview {
   won_count: number
   lost_count: number
+  lost_value: string
   win_rate: number | null
   avg_won_value: string | null
   avg_cycle_days: number | null
@@ -37,37 +61,12 @@ export interface Overview {
   by_owner: OwnerBucket[]
   by_segment: Bucket[]
   rule_blockers: RuleBlocker[]
-}
-
-export type RuleType = 'requirement_done' | 'max_discount' | 'approval_above_value'
-
-export interface Rule {
-  id: number
-  name: string
-  description: string | null
-  rule_type: RuleType
-  target_stage: Stage
-  severity: 'block' | 'warn'
-  params: Record<string, string | number>
-  is_active: boolean
-}
-
-export interface RuleUpdate {
-  is_active?: boolean
-  max_percent?: string
-  min_value?: string
+  overdue_deals: OverdueDeal[]
+  lost_deals: LostDeal[]
 }
 
 export function fetchOverview(): Promise<Overview> {
   return apiGet<Overview>('/stats/overview')
-}
-
-export function fetchRules(): Promise<Rule[]> {
-  return apiGet<Rule[]>('/rules')
-}
-
-export function updateRule(ruleId: number, changes: RuleUpdate): Promise<Rule> {
-  return apiPatch<Rule>(`/rules/${ruleId}`, changes)
 }
 
 // Chart colors mirror the tokens in index.css. The blue/orange pair passed the dataviz

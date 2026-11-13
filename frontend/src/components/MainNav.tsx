@@ -37,6 +37,16 @@ const ITEMS: NavItem[] = [
     icon: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
   },
   {
+    label: 'nav.rules',
+    route: 'rules',
+    icon: (
+      <>
+        <path d="M12 3 5 6v5c0 4.5 2.9 8.3 7 10 4.1-1.7 7-5.5 7-10V6l-7-3Z" />
+        <path d="m9 12 2 2 4-4" />
+      </>
+    ),
+  },
+  {
     label: 'nav.settings',
     route: 'settings',
     icon: (

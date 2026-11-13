@@ -1,4 +1,5 @@
 import { useI18n } from '../lib/i18nContext'
+import AdminAccess from './AdminAccess'
 import MainNav from './MainNav'
 import { useRoute } from '../lib/router'
 import type { Locale } from '../lib/messages'
@@ -21,7 +22,8 @@ export default function TopBar({ search, onSearchChange }: TopBarProps) {
       <div className="order-3 w-full md:order-2 md:ml-auto md:w-80">
         <SearchBox value={search} onChange={onSearchChange} />
       </div>
-      <div className="order-2 ml-auto md:order-3 md:ml-0">
+      <div className="order-2 ml-auto flex items-center gap-1 md:order-3 md:ml-0">
+        <AdminAccess />
         <LanguageToggle />
       </div>
     </header>

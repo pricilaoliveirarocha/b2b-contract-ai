@@ -46,3 +46,7 @@ class RuleType(StrEnum):
     REQUIREMENT_DONE = "requirement_done"  # um item do checklist precisa estar concluído
     MAX_DISCOUNT = "max_discount"  # desconto do contrato acima do limite
     APPROVAL_ABOVE_VALUE = "approval_above_value"  # valor alto exige aprovação
+
+
+# Checklist items that deals carry today (see seed.py). Rules can only be satisfied by items that exist.
+KNOWN_REQUIREMENT_KINDS = ("dpa", "security_questionnaire", "board_approval")

@@ -13,6 +13,7 @@ import {
 import { useLayoutEffect, useRef, useState } from 'react'
 import { formatMoney, STAGES, type Deal, type Stage, type StageInfo } from '../lib/deals'
 import { useI18n } from '../lib/i18nContext'
+import { usePreferences } from '../lib/preferences'
 import type { MessageKey } from '../lib/messages'
 import { STAGE_THEME } from '../lib/stageTheme'
 import DealCard from './DealCard'
@@ -128,7 +129,9 @@ function StageColumn({ stage, deals, pendingIds }: StageColumnProps) {
   const total = deals.reduce((sum, deal) => sum + Number(deal.value), 0)
   const [listRef, availableHeight] = useAvailableHeight(deals.length > 0)
   // When full cards would overflow, switch this column to one-line cards instead of scrolling.
-  const dense = deals.length * CARD_HEIGHT + (deals.length - 1) * LIST_GAP > availableHeight
+  const { density } = usePreferences()
+  // The user can ask for compact cards everywhere (Settings); otherwise it happens only when needed.
+  const dense = density === 'compact' || deals.length * CARD_HEIGHT + (deals.length - 1) * LIST_GAP > availableHeight
 
   return (
     <section

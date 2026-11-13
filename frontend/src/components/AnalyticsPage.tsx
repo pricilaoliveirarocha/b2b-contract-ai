@@ -12,12 +12,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { CHART, fetchOverview, formatCompactMoney, type Overview } from '../lib/analytics'
-import { formatMoney, type Stage } from '../lib/deals'
+import {
+  CHART,
+  fetchOverview,
+  formatCompactMoney,
+  type LostDeal,
+  type OverdueDeal,
+  type Overview,
+} from '../lib/analytics'
+import { formatFullDate, formatMoney, initials, type Stage } from '../lib/deals'
 import { useI18n } from '../lib/i18nContext'
 import { TREND_WEEKS, type TrendPoint } from '../lib/stats'
 import { describeViolation } from '../lib/violations'
-import InfoTip from './InfoTip'
+import DealDrawer from './DealDrawer'
+import InfoButton from './InfoButton'
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: Overview }
 
@@ -73,9 +81,9 @@ export default function AnalyticsPage({ trend }: { trend: TrendPoint[] | null })
 
   return (
     // Fits the window on large screens (no page scroll); on small screens the dashboard scrolls inside.
-    <main className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4 sm:px-6 lg:overflow-hidden">
-      <div className="grid gap-3 lg:h-full lg:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]">
-        <section aria-label={t('stats.label')} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <main className="scroll-thin min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4 sm:px-6 xl:overflow-hidden">
+      <div className="grid gap-3 xl:h-full xl:grid-rows-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+        <section aria-label={t('stats.label')} className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Kpi
             label={t('an.winRate')}
             value={data.win_rate === null ? '—' : `${new Intl.NumberFormat(locale).format(data.win_rate)}%`}
@@ -101,6 +109,13 @@ export default function AnalyticsPage({ trend }: { trend: TrendPoint[] | null })
             value={String(data.overdue_count)}
             hint={t('an.overdueHint', { value: money(Number(data.overdue_value)) })}
             accent={data.overdue_count > 0 ? 'bg-danger' : 'bg-muted/40'}
+          />
+          <Kpi
+            label={t('an.lost')}
+            value={String(data.lost_count)}
+            hint={t('an.lostHint', { value: money(Number(data.lost_value)) })}
+            accent="bg-orange"
+            className="col-span-2 lg:col-span-1"
           />
         </section>
 
@@ -191,7 +206,7 @@ export default function AnalyticsPage({ trend }: { trend: TrendPoint[] | null })
           </Panel>
         </div>
 
-        <div className="grid min-h-0 gap-3 lg:grid-cols-3">
+        <div className="grid min-h-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Panel title={t('an.owners')} subtitle={t('an.ownersSub')} info={t('an.ownersInfo')}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={owners} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 4 }} barGap={2}>
@@ -285,9 +300,155 @@ export default function AnalyticsPage({ trend }: { trend: TrendPoint[] | null })
               </ul>
             )}
           </Panel>
+
+          <Panel title={t('an.attention')} subtitle={t('an.attentionSub')} info={t('an.attentionInfo')}>
+            <AttentionList overdue={data.overdue_deals} lost={data.lost_deals} />
+          </Panel>
         </div>
       </div>
     </main>
+  )
+}
+
+type AttentionTab = 'overdue' | 'lost'
+
+/** Two lists in one panel: deals past their close date, and deals that were lost. Rows open the deal. */
+function AttentionList({ overdue, lost }: { overdue: OverdueDeal[]; lost: LostDeal[] }) {
+  const { t, locale } = useI18n()
+  const [tab, setTab] = useState<AttentionTab>('overdue')
+  const [openId, setOpenId] = useState<number | null>(null)
+  const compact = (value: string) => formatCompactMoney(Number(value), locale)
+  const tabs: { id: AttentionTab; count: number }[] = [
+    { id: 'overdue', count: overdue.length },
+    { id: 'lost', count: lost.length },
+  ]
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div
+        role="tablist"
+        aria-label={t('an.attention')}
+        className="mb-2 grid shrink-0 grid-cols-2 gap-1 rounded-lg bg-background p-1"
+      >
+        {tabs.map(({ id, count }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`attention-tab-${id}`}
+            aria-selected={tab === id}
+            aria-controls="attention-panel"
+            onClick={() => setTab(id)}
+            className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
+              tab === id ? 'bg-surface text-ink shadow-xs' : 'text-muted hover:text-ink'
+            }`}
+          >
+            {t(`an.tab.${id}`)}
+            <span
+              className={`rounded-full px-1.5 text-[10px] ${
+                id === 'overdue' && count > 0 ? 'bg-danger/10 text-danger' : 'bg-border/70 text-muted'
+              }`}
+            >
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div
+        id="attention-panel"
+        role="tabpanel"
+        aria-labelledby={`attention-tab-${tab}`}
+        className="scroll-thin min-h-0 flex-1 overflow-y-auto"
+      >
+        {tab === 'overdue' &&
+          (overdue.length === 0 ? (
+            <p className="grid h-full place-items-center text-sm text-muted">{t('an.overdueEmpty')}</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {overdue.map((deal) => (
+                <li key={deal.deal_id}>
+                  <DealRow
+                    onOpen={() => setOpenId(deal.deal_id)}
+                    owner={deal.owner}
+                    title={deal.title}
+                    subtitle={`${deal.company} · ${t(`stage.${deal.stage}`)}`}
+                    value={compact(deal.value)}
+                    meta={t(deal.days_overdue === 1 ? 'an.overdueDay' : 'an.overdueDays', { days: deal.days_overdue })}
+                    metaTone="text-danger"
+                  />
+                </li>
+              ))}
+            </ul>
+          ))}
+
+        {tab === 'lost' &&
+          (lost.length === 0 ? (
+            <p className="grid h-full place-items-center text-sm text-muted">{t('an.lostEmpty')}</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {lost.map((deal) => (
+                <li key={deal.deal_id}>
+                  <DealRow
+                    onOpen={() => setOpenId(deal.deal_id)}
+                    owner={deal.owner}
+                    title={deal.title}
+                    subtitle={
+                      deal.lost_from_stage
+                        ? `${deal.company} · ${t('an.lostIn', { stage: t(`stage.${deal.lost_from_stage}`) })}`
+                        : deal.company
+                    }
+                    note={deal.notes}
+                    value={compact(deal.value)}
+                    meta={deal.lost_at ? formatFullDate(deal.lost_at, locale) : ''}
+                    metaTone="text-muted"
+                  />
+                </li>
+              ))}
+            </ul>
+          ))}
+      </div>
+
+      <DealDrawer dealId={openId} onClose={() => setOpenId(null)} />
+    </div>
+  )
+}
+
+interface DealRowProps {
+  onOpen: () => void
+  owner: string | null
+  title: string
+  subtitle: string
+  note?: string | null
+  value: string
+  meta: string
+  metaTone: string
+}
+
+function DealRow({ onOpen, owner, title, subtitle, note, value, meta, metaTone }: DealRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition-colors duration-150 hover:bg-background focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <span
+        className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary"
+        title={owner ?? undefined}
+        aria-hidden="true"
+      >
+        {owner ? initials(owner) : ''}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-semibold">{title}</span>
+        <span className="block truncate text-xs text-muted">{subtitle}</span>
+        {note && <span className="mt-0.5 line-clamp-2 block text-xs leading-snug text-muted">{note}</span>}
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="block text-[13px] font-bold">{value}</span>
+        <span className={`block text-[11px] font-medium ${metaTone}`}>{meta}</span>
+      </span>
+    </button>
   )
 }
 
@@ -300,9 +461,17 @@ const axisProps = {
 const labelProps = { fill: CHART.axis, fontSize: 11, fontWeight: 600 } as const
 const legendStyle = { fontSize: 11, color: CHART.axis }
 
-function Kpi({ label, value, hint, accent }: { label: string; value: string; hint: string; accent: string }) {
+interface KpiProps {
+  label: string
+  value: string
+  hint: string
+  accent: string
+  className?: string
+}
+
+function Kpi({ label, value, hint, accent, className = '' }: KpiProps) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-surface px-4 py-3 shadow-[0_1px_3px_rgb(16_24_40/0.06)]">
+    <div className={`relative overflow-hidden rounded-2xl border border-border/60 bg-surface px-4 py-3 shadow-[0_1px_3px_rgb(16_24_40/0.06)] ${className}`}>
       <span className={`absolute inset-y-0 left-0 w-1 ${accent}`} aria-hidden="true" />
       <p className="text-xs font-medium text-muted">{label}</p>
       <p className="mt-0.5 text-2xl font-bold tracking-tight">{value}</p>
@@ -323,14 +492,14 @@ function Panel({ title, subtitle, info, className = '', children }: PanelProps) 
   const { t } = useI18n()
   return (
     <section
-      className={`relative flex h-72 min-h-0 flex-col rounded-2xl border border-border/60 bg-surface p-4 shadow-[0_1px_3px_rgb(16_24_40/0.06)] lg:h-auto ${className}`}
+      className={`relative flex h-72 min-h-0 flex-col rounded-2xl border border-border/60 bg-surface p-4 shadow-[0_1px_3px_rgb(16_24_40/0.06)] xl:h-auto ${className}`}
     >
       <header className="mb-2 flex shrink-0 items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold">{title}</h2>
           <p className="truncate text-xs text-muted">{subtitle}</p>
         </div>
-        <InfoTip label={t('an.howToRead')} title={title} text={info} />
+        <InfoButton label={t('an.howToRead')} title={title} text={info} />
       </header>
       <div className="min-h-0 flex-1">{children}</div>
     </section>

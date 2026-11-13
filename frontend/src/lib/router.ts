@@ -1,12 +1,13 @@
 import { useSyncExternalStore } from 'react'
 
 // Tiny router: a handful of pages doesn't justify a dependency. Uses the History API so URLs are real.
-export type Route = 'pipeline' | 'deals' | 'analytics' | 'settings'
+export type Route = 'pipeline' | 'deals' | 'analytics' | 'rules' | 'settings'
 
 const PATHS: Record<Route, string> = {
   pipeline: '/',
   deals: '/deals',
   analytics: '/analytics',
+  rules: '/rules',
   settings: '/settings',
 }
 

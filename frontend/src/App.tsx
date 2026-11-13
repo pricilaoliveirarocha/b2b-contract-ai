@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from
 import DealsPage from './components/DealsPage'
 import SettingsPage from './components/SettingsPage'
 import Notice, { type NoticeData } from './components/Notice'
+import RulesPage from './components/RulesPage'
 import PipelineBoard from './components/PipelineBoard'
 import PipelineStats from './components/PipelineStats'
 import TopBar from './components/TopBar'
@@ -116,6 +117,8 @@ export default function App() {
       )}
 
       {status === 'ready' && deals.length > 0 && route === 'deals' && <DealsPage deals={visibleDeals} />}
+
+      {status === 'ready' && route === 'rules' && <RulesPage />}
 
       {status === 'ready' && route === 'settings' && <SettingsPage />}
 

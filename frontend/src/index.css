@@ -41,6 +41,20 @@ body {
   mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
 }
 
+/* Slow vertical carousel: the track holds the list twice, so moving it by half its height loops seamlessly. */
+@keyframes roll-y {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+@utility roll-y {
+  animation: roll-y 40s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

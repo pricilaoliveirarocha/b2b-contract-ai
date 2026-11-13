@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.domain import RuleSeverity, RuleType, Stage
 from app.models import Deal, Rule
+from app.services.numbers import plain
 
 # Stable violation codes. Clients translate them using `params`; `message` is the English fallback.
 REQUIREMENT_MISSING = "requirement_missing"
@@ -67,12 +68,12 @@ def _check(rule: Rule, deal: Deal) -> _Problem | None:
     if rule.rule_type == RuleType.MAX_DISCOUNT:
         max_percent = Decimal(str(params["max_percent"]))
         if deal.contract is not None and deal.contract.discount_percent > max_percent:
-            discount = deal.contract.discount_percent.normalize()
-            limit = max_percent.normalize()
+            discount = plain(deal.contract.discount_percent)
+            limit = plain(max_percent)
             return _Problem(
                 DISCOUNT_ABOVE_LIMIT,
                 f"Discount of {discount}% is above the {limit}% limit.",
-                {"discount": str(discount), "max": str(limit)},
+                {"discount": discount, "max": limit},
             )
         return None
 

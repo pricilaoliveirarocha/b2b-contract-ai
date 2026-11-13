@@ -65,13 +65,17 @@ Requirements: Python 3.12+, Node.js 20+ and PostgreSQL with a database created f
 cd backend
 python -m venv .venv
 .venv\Scripts\python -m pip install -e ".[dev]"
-copy .env.example .env              # set DATABASE_URL
+copy .env.example .env              # set DATABASE_URL and ADMIN_TOKEN
 .venv\Scripts\alembic upgrade head
 .venv\Scripts\python -m app.seed    # sample data
 .venv\Scripts\uvicorn app.main:app --reload
 ```
 
 API at http://localhost:8000, interactive docs at http://localhost:8000/docs.
+
+`ADMIN_TOKEN` is the administrator key: it unlocks creating, editing and deleting contract rules (Rules page → *Administrator access*). Without it set, rules are read-only. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+
+`ANTHROPIC_API_KEY` is optional. When set, administrators can describe a rule in plain language on the Rules page and the Claude API proposes a draft to review (model set by `AI_MODEL`, default `claude-opus-5-5`). Only the sentence you type is sent, never deal or customer data, and nothing is saved until you confirm. Without the key that field stays off. The *Insights* next to the rules need no key: they are calculated from your own data.
 
 **Frontend**
 

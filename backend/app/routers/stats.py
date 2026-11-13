@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_session
-from app.schemas import OverviewOut, TrendOut
+from app.schemas import InsightsOut, OverviewOut, TrendOut
 from app.services.analytics import Overview, pipeline_overview
+from app.services.insights import build_insights
 from app.services.stats import pipeline_trend
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -24,3 +25,9 @@ def trend(
 def overview(session: Annotated[Session, Depends(get_session)]) -> Overview:
     """Everything the analytics dashboard needs, computed in one pass over the deals."""
     return pipeline_overview(session)
+
+
+@router.get("/insights", response_model=InsightsOut)
+def insights(session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Findings about the pipeline and its rules, computed from the data (see services/insights.py)."""
+    return {"insights": build_insights(session)}

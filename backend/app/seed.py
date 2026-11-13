@@ -77,7 +77,7 @@ DEMO_DEALS: list[DemoDeal] = [
     DemoDeal(
         "Construtora Alicerce", "Construção civil", "Controle de custos de obras · 12 canteiros",
         "Financeiro",
-        Stage.BUSINESS_CASE, "84000", Priority.LOW, 100, "Lucas Ferraz",
+        Stage.BUSINESS_CASE, "84000", Priority.LOW, -9, "Lucas Ferraz",
         "A controladoria quer substituir os relatórios mensais em Excel de cada obra. Estão "
         "comparando a nossa solução com o módulo adicional do ERP. Próximo passo: sessão com "
         "o CFO sobre custo total.",
@@ -93,7 +93,7 @@ DEMO_DEALS: list[DemoDeal] = [
     ),
     DemoDeal(
         "Seguradora Amparo", "Seguros", "Triagem de sinistros · ramo automóvel", "Jurídico",
-        Stage.POC, "168000", Priority.MEDIUM, 75, "Juliana Prado",
+        Stage.POC, "168000", Priority.MEDIUM, -6, "Juliana Prado",
         "Testando a triagem com 3 meses de sinistros de automóvel anonimizados. O jurídico tem "
         "receio de decisões automatizadas, então a solução foi posicionada só como apoio à "
         "decisão. Risco: a POC atrasou uma semana esperando a extração dos dados.",
@@ -142,7 +142,7 @@ DEMO_DEALS: list[DemoDeal] = [
     ),
     DemoDeal(
         "Hotel Brisa Mar", "Hotelaria", "Gestão de receita · 4 hotéis", "Comercial",
-        Stage.CONTRACTS, "64000", Priority.LOW, 15, "Camila Duarte",
+        Stage.CONTRACTS, "64000", Priority.LOW, -4, "Camila Duarte",
         "Venda adicional sobre o motor de reservas que já usam. Condições acertadas; falta o "
         "proprietário assinar o DPA (está viajando até sexta).",
     ),

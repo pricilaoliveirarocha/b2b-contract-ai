@@ -1,6 +1,5 @@
-"""Pipeline analytics for the dashboard: breakdowns, win rate, sales cycle and rule blockers."""
+"""Pipeline analytics for the dashboard: breakdowns, win rate, sales cycle, risks and rule blockers."""
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -18,6 +17,7 @@ NEXT_STAGE = {
     **{stage: PIPELINE_ORDER[i + 1] for i, stage in enumerate(PIPELINE_ORDER[:-1])},
     Stage.CONTRACTS: Stage.CLOSED_WON,
 }
+LIST_LIMIT = 10  # rows shown in the overdue / lost lists
 
 
 @dataclass
@@ -44,12 +44,40 @@ class RuleBlocker:
     params: dict[str, str]
     deals: int = 0
     value: Decimal = Decimal("0")
+    avg_days_stuck: float = 0.0  # average days the affected deals have been in their current stage
+
+
+@dataclass
+class OverdueDeal:
+    """An open deal whose expected close date has passed."""
+
+    deal_id: int
+    title: str
+    company: str
+    owner: str | None
+    stage: Stage
+    value: Decimal
+    close_date: date
+    days_overdue: int
+
+
+@dataclass
+class LostDeal:
+    deal_id: int
+    title: str
+    company: str
+    owner: str | None
+    value: Decimal
+    lost_at: datetime | None
+    lost_from_stage: Stage | None  # the stage the deal was in when it was lost
+    notes: str | None  # the sales rep's account of why it was lost
 
 
 @dataclass
 class Overview:
     won_count: int
     lost_count: int
+    lost_value: Decimal
     win_rate: float | None  # % of closed deals that were won
     avg_won_value: Decimal | None
     avg_cycle_days: float | None  # created -> won, for won deals
@@ -59,6 +87,8 @@ class Overview:
     by_owner: list[OwnerBucket] = field(default_factory=list)
     by_segment: list[Bucket] = field(default_factory=list)  # open pipeline only
     rule_blockers: list[RuleBlocker] = field(default_factory=list)
+    overdue_deals: list[OverdueDeal] = field(default_factory=list)  # most late first
+    lost_deals: list[LostDeal] = field(default_factory=list)  # most recent first
 
 
 def pipeline_overview(session: Session, today: date | None = None) -> Overview:
@@ -76,10 +106,12 @@ def pipeline_overview(session: Session, today: date | None = None) -> Overview:
     by_owner: dict[str, OwnerBucket] = {}
     by_segment: dict[str, Bucket] = {}
     blockers: dict[int, RuleBlocker] = {}
+    stuck_days: dict[int, int] = {}  # rule id -> total days in stage, summed over the affected deals
+    overdue_deals: list[OverdueDeal] = []
+    lost_deals: list[LostDeal] = []
     won_values: list[Decimal] = []
     cycle_days: list[int] = []
-    lost = 0
-    overdue_count = 0
+    lost_value = Decimal("0")
     overdue_value = Decimal("0")
 
     for deal in deals:
@@ -89,20 +121,31 @@ def pipeline_overview(session: Session, today: date | None = None) -> Overview:
 
         owner = by_owner.setdefault(deal.owner or "—", OwnerBucket(deal.owner or "—"))
         owner.deals += 1
+        history = sorted(deal.stage_history, key=lambda h: _aware(h.changed_at))
 
         if deal.stage == Stage.CLOSED_WON:
             owner.won_value += deal.value
             won_values.append(deal.value)
-            if deal.stage_history:
-                history = sorted(deal.stage_history, key=lambda h: _aware(h.changed_at))
-                won_at = next(
-                    (h.changed_at for h in reversed(history) if h.to_stage == Stage.CLOSED_WON), None
-                )
-                if won_at is not None:
-                    cycle_days.append((_aware(won_at) - _aware(history[0].changed_at)).days)
+            won_at = next((h.changed_at for h in reversed(history) if h.to_stage == Stage.CLOSED_WON), None)
+            if won_at is not None:
+                cycle_days.append((_aware(won_at) - _aware(history[0].changed_at)).days)
             continue
+
         if deal.stage == Stage.CLOSED_LOST:
-            lost += 1
+            lost_value += deal.value
+            lost_entry = next((h for h in reversed(history) if h.to_stage == Stage.CLOSED_LOST), None)
+            lost_deals.append(
+                LostDeal(
+                    deal_id=deal.id,
+                    title=deal.title,
+                    company=deal.company.name,
+                    owner=deal.owner,
+                    value=deal.value,
+                    lost_at=_aware(lost_entry.changed_at) if lost_entry else None,
+                    lost_from_stage=lost_entry.from_stage if lost_entry else None,
+                    notes=deal.notes,
+                )
+            )
             continue
 
         # Open deal from here on.
@@ -113,8 +156,19 @@ def pipeline_overview(session: Session, today: date | None = None) -> Overview:
         segment_bucket.value += deal.value
 
         if deal.close_date and deal.close_date < today:
-            overdue_count += 1
             overdue_value += deal.value
+            overdue_deals.append(
+                OverdueDeal(
+                    deal_id=deal.id,
+                    title=deal.title,
+                    company=deal.company.name,
+                    owner=deal.owner,
+                    stage=deal.stage,
+                    value=deal.value,
+                    close_date=deal.close_date,
+                    days_overdue=(today - deal.close_date).days,
+                )
+            )
 
         # What would stop this deal from moving to its next stage right now?
         for violation in evaluate_rules(session, deal, NEXT_STAGE[deal.stage]):
@@ -126,20 +180,29 @@ def pipeline_overview(session: Session, today: date | None = None) -> Overview:
             )
             blocker.deals += 1
             blocker.value += deal.value
+            last_move = _aware(history[-1].changed_at).date() if history else today
+            stuck_days[violation.rule_id] = stuck_days.get(violation.rule_id, 0) + (today - last_move).days
 
-    closed = len(won_values) + lost
+    for blocker in blockers.values():
+        blocker.avg_days_stuck = round(stuck_days.get(blocker.rule_id, 0) / blocker.deals, 1)
+
+    closed = len(won_values) + len(lost_deals)
+    epoch = datetime.min.replace(tzinfo=UTC)
     return Overview(
         won_count=len(won_values),
-        lost_count=lost,
+        lost_count=len(lost_deals),
+        lost_value=lost_value,
         win_rate=round(len(won_values) / closed * 100, 1) if closed else None,
         avg_won_value=(sum(won_values) / len(won_values)).quantize(Decimal("0.01")) if won_values else None,
         avg_cycle_days=round(sum(cycle_days) / len(cycle_days), 1) if cycle_days else None,
-        overdue_count=overdue_count,
+        overdue_count=len(overdue_deals),
         overdue_value=overdue_value,
         by_stage=list(by_stage.values()),
         by_owner=sorted(by_owner.values(), key=lambda o: o.open_value + o.won_value, reverse=True),
         by_segment=sorted(by_segment.values(), key=lambda b: b.value, reverse=True),
         rule_blockers=sorted(blockers.values(), key=lambda b: b.value, reverse=True),
+        overdue_deals=sorted(overdue_deals, key=lambda d: (-d.days_overdue, -d.value))[:LIST_LIMIT],
+        lost_deals=sorted(lost_deals, key=lambda d: d.lost_at or epoch, reverse=True)[:LIST_LIMIT],
     )
 
 

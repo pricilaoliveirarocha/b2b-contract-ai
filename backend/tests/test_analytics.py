@@ -67,3 +67,39 @@ def test_overview_endpoint(client, session):
 
     assert set(body) >= {"win_rate", "by_stage", "by_owner", "by_segment", "rule_blockers"}
     assert isinstance(body["by_stage"][0]["value"], str)
+
+
+def test_overdue_deals_are_listed_most_late_first(session):
+    seed(session)
+
+    overview = pipeline_overview(session)
+
+    assert overview.overdue_count == len(overview.overdue_deals) == 3
+    days = [d.days_overdue for d in overview.overdue_deals]
+    assert days == sorted(days, reverse=True)
+    assert all(d > 0 for d in days)
+    assert overview.overdue_value == sum(d.value for d in overview.overdue_deals)
+    assert all(d.stage not in (Stage.CLOSED_WON, Stage.CLOSED_LOST) for d in overview.overdue_deals)
+
+
+def test_lost_deals_carry_value_stage_and_reason(session):
+    seed(session)
+
+    overview = pipeline_overview(session)
+
+    assert overview.lost_count == len(overview.lost_deals) == 2
+    assert overview.lost_value == Decimal("177000")  # 35k + 142k
+    assert all(d.lost_from_stage == Stage.BUSINESS_CASE for d in overview.lost_deals)
+    assert all(d.notes for d in overview.lost_deals)
+    dates = [d.lost_at for d in overview.lost_deals]
+    assert dates == sorted(dates, reverse=True)  # most recent first
+
+
+def test_overview_endpoint_includes_risk_lists(client, session):
+    seed(session)
+
+    body = client.get("/api/stats/overview").json()
+
+    assert body["lost_value"] == "177000.00"
+    assert {"deal_id", "title", "company", "days_overdue", "close_date"} <= set(body["overdue_deals"][0])
+    assert {"deal_id", "value", "lost_from_stage", "notes"} <= set(body["lost_deals"][0])
