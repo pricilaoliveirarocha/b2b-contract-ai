@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
 import DealsPage from './components/DealsPage'
+import SettingsPage from './components/SettingsPage'
 import Notice, { type NoticeData } from './components/Notice'
 import PipelineBoard from './components/PipelineBoard'
 import PipelineStats from './components/PipelineStats'
@@ -9,6 +10,9 @@ import { useI18n } from './lib/i18nContext'
 import { useRoute } from './lib/router'
 import { fetchTrend, type TrendPoint } from './lib/stats'
 import { describeViolation } from './lib/violations'
+
+// Charts (Recharts) are heavy: only download them when the Analytics page is opened.
+const AnalyticsPage = lazy(() => import('./components/AnalyticsPage'))
 
 type LoadStatus = 'loading' | 'error' | 'ready'
 
@@ -112,6 +116,14 @@ export default function App() {
       )}
 
       {status === 'ready' && deals.length > 0 && route === 'deals' && <DealsPage deals={visibleDeals} />}
+
+      {status === 'ready' && route === 'settings' && <SettingsPage />}
+
+      {status === 'ready' && deals.length > 0 && route === 'analytics' && (
+        <Suspense fallback={<CenteredMessage>{t('an.loading')}</CenteredMessage>}>
+          <AnalyticsPage trend={trend} />
+        </Suspense>
+      )}
 
       {status === 'ready' && deals.length > 0 && route === 'pipeline' && (
         <>

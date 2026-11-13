@@ -1,12 +1,19 @@
 import { useSyncExternalStore } from 'react'
 
-// Tiny router: two pages don't justify a dependency. Uses the History API so URLs are real (/deals).
-export type Route = 'pipeline' | 'deals'
+// Tiny router: a handful of pages doesn't justify a dependency. Uses the History API so URLs are real.
+export type Route = 'pipeline' | 'deals' | 'analytics' | 'settings'
 
-const PATHS: Record<Route, string> = { pipeline: '/', deals: '/deals' }
+const PATHS: Record<Route, string> = {
+  pipeline: '/',
+  deals: '/deals',
+  analytics: '/analytics',
+  settings: '/settings',
+}
 
 function currentRoute(): Route {
-  return window.location.pathname.replace(/\/+$/, '') === PATHS.deals ? 'deals' : 'pipeline'
+  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  const match = (Object.keys(PATHS) as Route[]).find((route) => PATHS[route] === path)
+  return match ?? 'pipeline'
 }
 
 function subscribe(onChange: () => void) {

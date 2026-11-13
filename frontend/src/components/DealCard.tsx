@@ -14,7 +14,7 @@ interface DealCardProps {
 }
 
 /**
- * Compact card (~90px tall) so a column fits its deals without scrolling.
+ * Compact card (90-108px tall, depending on the title) so a column fits its deals without scrolling.
  * Secondary details (priority name, owner name, "overdue") are in tooltips and screen-reader text.
  */
 export default function DealCard({ deal, isOverlay = false, dense = false }: DealCardProps) {
@@ -64,7 +64,7 @@ export default function DealCard({ deal, isOverlay = false, dense = false }: Dea
         )}
       </div>
 
-      <h3 className="mt-0.5 truncate text-[13px] leading-snug font-semibold" title={deal.title}>
+      <h3 className="mt-0.5 line-clamp-2 text-[13px] leading-snug font-semibold" title={deal.title}>
         {deal.title}
       </h3>
 

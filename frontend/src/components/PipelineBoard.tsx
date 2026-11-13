@@ -93,7 +93,7 @@ function StageMarker({ stage }: { stage: Stage }) {
 }
 
 // Heights used to decide whether full cards fit (match DealCard's two layouts).
-const CARD_HEIGHT = 90
+const CARD_HEIGHT = 108 // tallest regular card (two-line title)
 const LIST_GAP = 6
 
 /** Height available for the card list, kept up to date as the window is resized. */

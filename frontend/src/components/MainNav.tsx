@@ -33,10 +33,12 @@ const ITEMS: NavItem[] = [
   },
   {
     label: 'nav.analytics',
+    route: 'analytics',
     icon: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
   },
   {
     label: 'nav.settings',
+    route: 'settings',
     icon: (
       <>
         <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import deals, stats
+from app.routers import deals, rules, stats
 
 app = FastAPI(title="b2b-contract-ai", version="0.1.0")
 
@@ -21,3 +21,4 @@ def health() -> dict[str, str]:
 
 app.include_router(deals.router)
 app.include_router(stats.router)
+app.include_router(rules.router)

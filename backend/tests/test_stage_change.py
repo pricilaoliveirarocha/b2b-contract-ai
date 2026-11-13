@@ -77,11 +77,14 @@ def test_board_approval_required_only_above_threshold(session):
     _complete(big, "dpa")
     _complete(small, "dpa")
 
-    big_names = [v.rule_name for v in evaluate_rules(session, big, Stage.CLOSED_WON)]
-    small_names = [v.rule_name for v in evaluate_rules(session, small, Stage.CLOSED_WON)]
+    def needs_approval(deal):
+        return any(
+            v.params.get("requirement") == "board_approval"
+            for v in evaluate_rules(session, deal, Stage.CLOSED_WON)
+        )
 
-    assert any("Board approval" in name for name in big_names)
-    assert not any("Board approval" in name for name in small_names)
+    assert needs_approval(big)
+    assert not needs_approval(small)
 
 
 def test_inactive_rules_are_ignored(session):
