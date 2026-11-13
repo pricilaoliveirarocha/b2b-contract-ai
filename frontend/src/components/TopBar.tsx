@@ -1,5 +1,6 @@
 import { useI18n } from '../lib/i18nContext'
 import MainNav from './MainNav'
+import { useRoute } from '../lib/router'
 import type { Locale } from '../lib/messages'
 
 interface TopBarProps {
@@ -10,11 +11,12 @@ interface TopBarProps {
 /** Minimal top bar: navigation, search and language. The page title stays available to screen readers. */
 export default function TopBar({ search, onSearchChange }: TopBarProps) {
   const { t } = useI18n()
+  const route = useRoute()
 
   return (
     // One row on desktop; on phones the search wraps to its own row under the menu.
     <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/70 px-4 py-2 sm:px-6">
-      <h1 className="sr-only">{t('nav.pipeline')}</h1>
+      <h1 className="sr-only">{t(route === 'deals' ? 'nav.deals' : 'nav.pipeline')}</h1>
       <MainNav />
       <div className="order-3 w-full md:order-2 md:ml-auto md:w-80">
         <SearchBox value={search} onChange={onSearchChange} />

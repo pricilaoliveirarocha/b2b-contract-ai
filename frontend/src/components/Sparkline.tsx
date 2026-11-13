@@ -2,7 +2,7 @@ import { useId } from 'react'
 
 interface SparklineProps {
   values: number[]
-  className?: string // set the color with a text-* class; the line uses currentColor
+  className?: string // size (h-*/w-*) and color (text-*); the line uses currentColor
 }
 
 const WIDTH = 96
@@ -24,13 +24,13 @@ export default function Sparkline({ values, className = '' }: SparklineProps) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className={`h-6 w-16 shrink-0 overflow-visible ${className}`}
+      className={`shrink-0 overflow-visible ${className}`}
       preserveAspectRatio="none"
       aria-hidden="true"
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -39,7 +39,7 @@ export default function Sparkline({ values, className = '' }: SparklineProps) {
         d={line}
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"

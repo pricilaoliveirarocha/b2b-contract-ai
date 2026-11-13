@@ -21,8 +21,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
-export function apiGet<T>(path: string): Promise<T> {
-  return request<T>(path)
+export function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>(path, { signal })
 }
 
 export function apiPatch<T>(path: string, data: unknown): Promise<T> {

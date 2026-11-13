@@ -1,19 +1,18 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useI18n } from '../lib/i18nContext'
 import type { MessageKey } from '../lib/messages'
+import { navigate, pathFor, useRoute, type Route } from '../lib/router'
 
 interface NavItem {
   label: MessageKey
   icon: ReactNode
-  active?: boolean
-  available: boolean // pages that don't exist yet are shown, but disabled
+  route?: Route // pages without a route don't exist yet: shown, but disabled
 }
 
 const ITEMS: NavItem[] = [
   {
     label: 'nav.pipeline',
-    active: true,
-    available: true,
+    route: 'pipeline',
     icon: (
       <>
         <rect x="3" y="4" width="5" height="16" rx="1.5" />
@@ -24,7 +23,7 @@ const ITEMS: NavItem[] = [
   },
   {
     label: 'nav.deals',
-    available: false,
+    route: 'deals',
     icon: (
       <>
         <rect x="3" y="7" width="18" height="13" rx="2" />
@@ -34,12 +33,10 @@ const ITEMS: NavItem[] = [
   },
   {
     label: 'nav.analytics',
-    available: false,
     icon: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
   },
   {
     label: 'nav.settings',
-    available: false,
     icon: (
       <>
         <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" />
@@ -57,13 +54,14 @@ const ITEMS: NavItem[] = [
  */
 export default function MainNav() {
   const { t } = useI18n()
+  const current = useRoute()
 
   return (
     <nav aria-label={t('nav.main')}>
       <ul className="flex items-center gap-1 sm:gap-3">
         {ITEMS.map((item) => (
           <li key={item.label}>
-            <NavLink item={item} label={t(item.label)} soon={t('nav.soon')} />
+            <NavLink item={item} current={current} label={t(item.label)} soon={t('nav.soon')} />
           </li>
         ))}
       </ul>
@@ -71,7 +69,14 @@ export default function MainNav() {
   )
 }
 
-function NavLink({ item, label, soon }: { item: NavItem; label: string; soon: string }) {
+interface NavLinkProps {
+  item: NavItem
+  current: Route
+  label: string
+  soon: string
+}
+
+function NavLink({ item, current, label, soon }: NavLinkProps) {
   const icon = (
     <svg
       className="size-4 shrink-0"
@@ -89,12 +94,27 @@ function NavLink({ item, label, soon }: { item: NavItem; label: string; soon: st
   const base =
     'relative flex h-9 items-center gap-1.5 px-1.5 text-sm transition-colors duration-150 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary'
 
-  if (item.active) {
+  if (item.route) {
+    const route = item.route
+    const active = route === current
+    const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      // Let ctrl/cmd-click open a new tab as usual.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+      event.preventDefault()
+      navigate(route)
+    }
     return (
-      <a href="/" aria-current="page" className={`${base} font-semibold text-ink`}>
+      <a
+        href={pathFor(route)}
+        onClick={onClick}
+        aria-current={active ? 'page' : undefined}
+        className={`${base} ${active ? 'font-semibold text-ink' : 'font-medium text-muted hover:text-ink'}`}
+      >
         {icon}
-        {label}
-        <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-full bg-primary" aria-hidden="true" />
+        <span className={active ? '' : 'hidden sm:inline'}>{label}</span>
+        {active && (
+          <span className="absolute inset-x-1.5 -bottom-px h-0.5 rounded-full bg-primary" aria-hidden="true" />
+        )}
       </a>
     )
   }

@@ -120,3 +120,42 @@ export function formatDate(isoDate: string, locale: string): string {
     day: 'numeric',
   })
 }
+
+// --- Deal detail (GET /api/deals/{id}); mirrors DealDetailOut in backend/app/schemas.py ---
+
+export type ContractStatus = 'draft' | 'in_review' | 'signed'
+
+export interface DealDetail extends Deal {
+  notes: string | null
+  contract: {
+    status: ContractStatus
+    total_value: string
+    duration_months: number
+    start_date: string | null
+    payment_terms: string | null
+    discount_percent: string
+  } | null
+  requirements: { kind: string; label: string; is_done: boolean; done_at: string | null }[]
+  stage_history: { from_stage: Stage | null; to_stage: Stage; changed_at: string }[]
+}
+
+export function fetchDeal(dealId: number, signal?: AbortSignal): Promise<DealDetail> {
+  return apiGet<DealDetail>(`/deals/${dealId}`, signal)
+}
+
+/** Full date ("13 Nov 2026"). Accepts a date (YYYY-MM-DD) or a timestamp. */
+export function formatFullDate(value: string, locale: string): string {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? (() => {
+        const [year, month, day] = value.split('-').map(Number)
+        return new Date(year, month - 1, day)
+      })()
+    : new Date(value)
+  return date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+/** "3 days ago" / "há 3 dias". */
+export function formatRelative(timestamp: string, locale: string, now = new Date()): string {
+  const days = Math.round((new Date(timestamp).getTime() - now.getTime()) / 86_400_000)
+  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(days, 'day')
+}

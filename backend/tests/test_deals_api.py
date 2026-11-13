@@ -74,3 +74,32 @@ def test_list_deals_empty_database(client):
     response = client.get("/api/deals")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_get_deal_returns_details(client, session):
+    seed(session)
+    deal = next(d for d in client.get("/api/deals").json() if d["stage"] == Stage.CONTRACTS.value)
+
+    response = client.get(f"/api/deals/{deal['id']}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == deal["id"]
+    assert body["contract"]["duration_months"] > 0
+    assert {r["kind"] for r in body["requirements"]} >= {"dpa", "security_questionnaire"}
+    assert body["stage_history"][-1]["to_stage"] == Stage.CONTRACTS.value
+    assert "changed_by" not in body["stage_history"][0]
+
+
+def test_get_deal_without_contract(client, session):
+    seed(session)
+    deal = next(d for d in client.get("/api/deals").json() if d["stage"] == Stage.DISCOVERY.value)
+
+    body = client.get(f"/api/deals/{deal['id']}").json()
+
+    assert body["contract"] is None
+    assert body["requirements"] == []
+
+
+def test_get_unknown_deal_returns_404(client):
+    assert client.get("/api/deals/999999").status_code == 404

@@ -14,6 +14,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { formatMoney, STAGES, type Deal, type Stage, type StageInfo } from '../lib/deals'
 import { useI18n } from '../lib/i18nContext'
 import type { MessageKey } from '../lib/messages'
+import { STAGE_THEME } from '../lib/stageTheme'
 import DealCard from './DealCard'
 import StageInfoButton from './StageInfoButton'
 
@@ -69,17 +70,6 @@ interface StageColumnProps {
   stage: StageInfo
   deals: Deal[]
   pendingIds: ReadonlySet<number>
-}
-
-// Soft tint per stage, like a heat ramp: early stages blue, security violet, contracts teal.
-const STAGE_THEME: Record<Stage, { column: string; marker: 'dot' | 'won' | 'lost'; color: string }> = {
-  discovery: { column: 'from-primary/10 to-primary/[0.02]', marker: 'dot', color: 'text-primary' },
-  business_case: { column: 'from-primary/10 to-primary/[0.02]', marker: 'dot', color: 'text-primary' },
-  poc: { column: 'from-primary/10 to-primary/[0.02]', marker: 'dot', color: 'text-primary' },
-  infosec: { column: 'from-violet/12 to-violet/[0.02]', marker: 'dot', color: 'text-violet' },
-  contracts: { column: 'from-teal/10 to-teal/[0.02]', marker: 'dot', color: 'text-teal' },
-  closed_won: { column: 'from-win/14 to-win/[0.03]', marker: 'won', color: 'text-win' },
-  closed_lost: { column: 'from-muted/14 to-muted/[0.04]', marker: 'lost', color: 'text-muted' },
 }
 
 function StageMarker({ stage }: { stage: Stage }) {

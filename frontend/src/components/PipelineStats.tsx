@@ -74,10 +74,10 @@ export default function PipelineStats({ deals, trend }: PipelineStatsProps) {
 }
 
 const TONE = {
-  blue: { icon: 'bg-primary', line: 'text-primary' },
-  violet: { icon: 'bg-violet', line: 'text-violet' },
-  green: { icon: 'bg-win', line: 'text-win' },
-  orange: { icon: 'bg-orange', line: 'text-orange' },
+  blue: { icon: 'bg-primary', line: 'text-primary', tint: 'from-primary/[0.09]' },
+  violet: { icon: 'bg-violet', line: 'text-violet', tint: 'from-violet/[0.10]' },
+  green: { icon: 'bg-win', line: 'text-win', tint: 'from-win/[0.10]' },
+  orange: { icon: 'bg-orange', line: 'text-orange', tint: 'from-orange/[0.11]' },
 }
 
 interface StatCardProps {
@@ -93,32 +93,36 @@ function StatCard({ label, value, series, tone, icon, vsLabel }: StatCardProps) 
   const change = percentChange(series)
 
   return (
-    <div className="flex w-60 shrink-0 snap-start items-center gap-2.5 rounded-xl border border-border/60 bg-surface px-3 py-2 shadow-[0_1px_2px_rgb(16_24_40/0.05)] sm:w-auto">
-      <span
-        className={`grid size-8 shrink-0 place-items-center rounded-full text-white ${TONE[tone].icon}`}
-        aria-hidden="true"
-      >
-        <svg
-          className="size-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {icon}
-        </svg>
-      </span>
-
+    // Tinted card: the chart and the number are the focus; label and icon stay small.
+    <div
+      className={`flex w-64 shrink-0 snap-start items-end gap-3 rounded-2xl border border-border/60 bg-surface bg-linear-to-br to-surface to-70% px-3.5 pt-3 pb-2.5 shadow-[0_1px_3px_rgb(16_24_40/0.07)] transition-shadow duration-200 hover:shadow-md sm:w-auto ${TONE[tone].tint}`}
+    >
       <div className="min-w-0 flex-1">
-        <dt className="truncate text-[11px] font-medium text-muted">{label}</dt>
-        <dd className="text-[15px] leading-tight font-bold tracking-tight">{value}</dd>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`grid size-5 shrink-0 place-items-center rounded-md text-white ${TONE[tone].icon}`}
+            aria-hidden="true"
+          >
+            <svg
+              className="size-3"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {icon}
+            </svg>
+          </span>
+          <dt className="truncate text-xs font-medium text-muted">{label}</dt>
+        </div>
+        <dd className="mt-1 text-xl leading-tight font-bold tracking-tight">{value}</dd>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-0.5">
+      <div className="flex shrink-0 flex-col items-end gap-1">
         {change !== null && <TrendBadge change={change} vsLabel={vsLabel} />}
-        <Sparkline values={series} className={TONE[tone].line} />
+        <Sparkline values={series} className={`h-10 w-28 ${TONE[tone].line}`} />
       </div>
     </div>
   )
@@ -128,11 +132,11 @@ function TrendBadge({ change, vsLabel }: { change: number; vsLabel: string }) {
   const rounded = Math.round(change)
   const up = rounded > 0
   const down = rounded < 0
-  const color = up ? 'text-success' : down ? 'text-danger' : 'text-muted'
+  const color = up ? 'bg-success/10 text-success' : down ? 'bg-danger/10 text-danger' : 'bg-muted/10 text-muted'
   const arrow = up ? '↑' : down ? '↓' : '→'
 
   return (
-    <span className={`text-[11px] leading-none font-semibold ${color}`} title={vsLabel}>
+    <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none font-semibold ${color}`} title={vsLabel}>
       <span aria-hidden="true">{arrow} </span>
       {Math.abs(rounded)}%<span className="sr-only"> {vsLabel}</span>
     </span>

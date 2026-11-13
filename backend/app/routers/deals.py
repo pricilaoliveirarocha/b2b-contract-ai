@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.db import get_session
 from app.domain import RuleSeverity, Stage
 from app.models import Deal, StageHistory
-from app.schemas import DealOut, StageChangeIn, StageChangeOut
+from app.schemas import DealDetailOut, DealOut, StageChangeIn, StageChangeOut
 from app.services.rules import evaluate_rules
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
@@ -33,6 +33,24 @@ def list_deals(
     if stage is not None:
         query = query.where(Deal.stage == stage)
     return list(session.scalars(query))
+
+
+@router.get("/{deal_id}", response_model=DealDetailOut, responses={404: {"description": "Deal not found"}})
+def get_deal(deal_id: int, session: Annotated[Session, Depends(get_session)]) -> Deal:
+    """One deal with its contract terms, checklist and stage history."""
+    deal = session.scalar(
+        select(Deal)
+        .where(Deal.id == deal_id)
+        .options(
+            joinedload(Deal.company),
+            joinedload(Deal.contract),
+            selectinload(Deal.requirements),
+            selectinload(Deal.stage_history),
+        )
+    )
+    if deal is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Deal not found.")
+    return deal
 
 
 @router.patch(

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import DealsPage from './components/DealsPage'
 import Notice, { type NoticeData } from './components/Notice'
 import PipelineBoard from './components/PipelineBoard'
 import PipelineStats from './components/PipelineStats'
 import TopBar from './components/TopBar'
 import { changeDealStage, fetchDeals, type Deal, type Stage } from './lib/deals'
 import { useI18n } from './lib/i18nContext'
+import { useRoute } from './lib/router'
 import { fetchTrend, type TrendPoint } from './lib/stats'
 import { describeViolation } from './lib/violations'
 
@@ -12,6 +14,7 @@ type LoadStatus = 'loading' | 'error' | 'ready'
 
 export default function App() {
   const { t, locale } = useI18n()
+  const route = useRoute()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [deals, setDeals] = useState<Deal[]>([])
   const [pendingIds, setPendingIds] = useState<ReadonlySet<number>>(new Set())
@@ -108,7 +111,9 @@ export default function App() {
         </CenteredMessage>
       )}
 
-      {status === 'ready' && deals.length > 0 && (
+      {status === 'ready' && deals.length > 0 && route === 'deals' && <DealsPage deals={visibleDeals} />}
+
+      {status === 'ready' && deals.length > 0 && route === 'pipeline' && (
         <>
           <div className="shrink-0 px-4 py-3 sm:px-6">
             <PipelineStats deals={deals} trend={trend} />

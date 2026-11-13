@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.domain import Priority, RuleSeverity, Stage
+from app.domain import ContractStatus, Priority, RuleSeverity, Stage
 
 
 class CompanySummary(BaseModel):
@@ -32,6 +32,43 @@ class DealOut(BaseModel):
     close_date: date | None
     owner: str | None
     last_touched_at: datetime | None
+
+
+class ContractOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: ContractStatus
+    total_value: Decimal
+    duration_months: int
+    start_date: date | None
+    payment_terms: str | None
+    discount_percent: Decimal
+
+
+class RequirementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: str
+    label: str
+    is_done: bool
+    done_at: datetime | None
+
+
+class StageHistoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    from_stage: Stage | None
+    to_stage: Stage
+    changed_at: datetime
+
+
+class DealDetailOut(DealOut):
+    """Everything about one deal, for the detail panel (not sent in the board listing)."""
+
+    notes: str | None
+    contract: ContractOut | None
+    requirements: list[RequirementOut]
+    stage_history: list[StageHistoryOut]
 
 
 class StageChangeIn(BaseModel):
