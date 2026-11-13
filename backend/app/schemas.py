@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -277,3 +277,26 @@ class InsightOut(BaseModel):
 
 class InsightsOut(BaseModel):
     insights: list[InsightOut]
+
+
+class BulkStageIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    deal_ids: list[int] = Field(min_length=1, max_length=200)
+    stage: Stage
+
+
+class BulkStageItemOut(BaseModel):
+    deal_id: int
+    status: Literal["moved", "blocked", "unchanged", "not_found"]
+    warnings: list[RuleViolationOut]
+    violations: list[RuleViolationOut]  # the rules that blocked it
+
+
+class BulkStageOut(BaseModel):
+    moved: int
+    blocked: int
+    unchanged: int
+    not_found: int
+    results: list[BulkStageItemOut]
+    deals: list[DealOut]  # the deals that were moved, as they are now

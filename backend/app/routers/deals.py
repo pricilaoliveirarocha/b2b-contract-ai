@@ -7,10 +7,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_session
-from app.domain import RuleSeverity, Stage
-from app.models import Deal, StageHistory
-from app.schemas import DealDetailOut, DealOut, StageChangeIn, StageChangeOut
-from app.services.rules import evaluate_rules
+from app.domain import Stage
+from app.models import Deal
+from app.schemas import (
+    BulkStageIn,
+    BulkStageOut,
+    DealDetailOut,
+    DealOut,
+    StageChangeIn,
+    StageChangeOut,
+)
+from app.services.moves import attempt_move
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
@@ -87,22 +94,70 @@ def change_stage(
     if deal.stage == payload.stage:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Deal is already in this stage.")
 
-    violations = evaluate_rules(session, deal, payload.stage)
-    blocking = [v for v in violations if v.severity == RuleSeverity.BLOCK]
-    if blocking:
+    outcome = attempt_move(session, deal, payload.stage, datetime.now(UTC))
+    if not outcome.moved:
         session.rollback()
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail={
                 "message": "Stage change blocked by contract rules.",
-                "violations": [asdict(v) for v in blocking],
+                "violations": [asdict(v) for v in outcome.blocking],
             },
         )
-
-    now = datetime.now(UTC)
-    session.add(StageHistory(deal_id=deal.id, from_stage=deal.stage, to_stage=payload.stage, changed_at=now))
-    deal.stage = payload.stage
-    deal.last_touched_at = now
     session.commit()
 
-    return {"deal": deal, "warnings": [asdict(v) for v in violations]}
+    return {"deal": deal, "warnings": [asdict(v) for v in outcome.warnings]}
+
+
+@router.post(
+    "/bulk-stage",
+    response_model=BulkStageOut,
+    responses={422: {"description": "Empty or too long list, or unknown stage"}},
+)
+def bulk_change_stage(payload: BulkStageIn, session: Annotated[Session, Depends(get_session)]) -> dict:
+    """Move several deals to one stage. The contract rules are checked for EACH deal.
+
+    Deals that pass are moved; deals blocked by a rule are left untouched and reported, so one
+    blocked deal never stops the others. Everything that moved is saved together.
+    """
+    ids = list(dict.fromkeys(payload.deal_ids))  # drop duplicates, keep the order
+    found = {
+        deal.id: deal
+        for deal in session.scalars(
+            select(Deal)
+            .where(Deal.id.in_(ids))
+            .options(
+                joinedload(Deal.company),
+                joinedload(Deal.contract),
+                selectinload(Deal.requirements),
+            )
+            .order_by(Deal.id)  # always lock in the same order, so two bulk moves can't deadlock
+            .with_for_update(of=Deal)
+        ).unique()
+    }
+
+    now = datetime.now(UTC)
+    results: list[dict] = []
+    moved: list[Deal] = []
+    for deal_id in ids:
+        deal = found.get(deal_id)
+        if deal is None:
+            results.append({"deal_id": deal_id, "status": "not_found", "warnings": [], "violations": []})
+        elif deal.stage == payload.stage:
+            results.append({"deal_id": deal_id, "status": "unchanged", "warnings": [], "violations": []})
+        else:
+            outcome = attempt_move(session, deal, payload.stage, now)
+            if outcome.moved:
+                moved.append(deal)
+            results.append(
+                {
+                    "deal_id": deal_id,
+                    "status": "moved" if outcome.moved else "blocked",
+                    "warnings": [asdict(v) for v in outcome.warnings],
+                    "violations": [asdict(v) for v in outcome.blocking],
+                }
+            )
+    session.commit()
+
+    counts = {name: sum(1 for r in results if r["status"] == name) for name in ("moved", "blocked", "unchanged", "not_found")}
+    return {**counts, "results": results, "deals": moved}

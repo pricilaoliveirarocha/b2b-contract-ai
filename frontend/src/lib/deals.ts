@@ -1,4 +1,4 @@
-import { ApiError, apiGet, apiPatch } from './api'
+import { ApiError, apiGet, apiPatch, apiPost } from './api'
 
 // Mirrors backend/app/domain.py and backend/app/schemas.py.
 export type Stage =
@@ -158,4 +158,40 @@ export function formatFullDate(value: string, locale: string): string {
 export function formatRelative(timestamp: string, locale: string, now = new Date()): string {
   const days = Math.round((new Date(timestamp).getTime() - now.getTime()) / 86_400_000)
   return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(days, 'day')
+}
+
+// --- Moving several deals at once (POST /api/deals/bulk-stage) ---
+
+export interface BulkItem {
+  deal_id: number
+  status: 'moved' | 'blocked' | 'unchanged' | 'not_found'
+  warnings: RuleViolation[]
+  violations: RuleViolation[] // the rules that blocked it
+}
+
+export interface BulkResult {
+  moved: number
+  blocked: number
+  unchanged: number
+  not_found: number
+  results: BulkItem[]
+  deals: Deal[] // the deals that moved, as they are now
+}
+
+const BULK_CHUNK = 200 // the API accepts at most this many ids per request
+
+/** Moves the deals to `stage`. Long lists are sent in chunks; the answers are merged. */
+export async function bulkChangeStage(dealIds: number[], stage: Stage): Promise<BulkResult> {
+  const total: BulkResult = { moved: 0, blocked: 0, unchanged: 0, not_found: 0, results: [], deals: [] }
+  for (let start = 0; start < dealIds.length; start += BULK_CHUNK) {
+    const chunk = dealIds.slice(start, start + BULK_CHUNK)
+    const part = await apiPost<BulkResult>('/deals/bulk-stage', { deal_ids: chunk, stage })
+    total.moved += part.moved
+    total.blocked += part.blocked
+    total.unchanged += part.unchanged
+    total.not_found += part.not_found
+    total.results.push(...part.results)
+    total.deals.push(...part.deals)
+  }
+  return total
 }

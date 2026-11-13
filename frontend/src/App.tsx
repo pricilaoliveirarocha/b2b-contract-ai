@@ -6,7 +6,7 @@ import RulesPage from './components/RulesPage'
 import PipelineBoard from './components/PipelineBoard'
 import PipelineStats from './components/PipelineStats'
 import TopBar from './components/TopBar'
-import { changeDealStage, fetchDeals, type Deal, type Stage } from './lib/deals'
+import { bulkChangeStage, changeDealStage, fetchDeals, type Deal, type Stage } from './lib/deals'
 import { useI18n } from './lib/i18nContext'
 import { useRoute } from './lib/router'
 import { fetchTrend, type TrendPoint } from './lib/stats'
@@ -91,6 +91,53 @@ export default function App() {
     }
   }
 
+  /**
+   * Moves several deals at once. The server checks the contract rules for each one: the allowed ones
+   * move, the blocked ones stay where they are. Returns the ids that did NOT move, so the table can
+   * keep them selected.
+   */
+  async function handleBulkMove(dealIds: number[], stage: Stage): Promise<number[]> {
+    setNotice(null)
+    try {
+      const result = await bulkChangeStage(dealIds, stage)
+      const moved = new Map(result.deals.map((deal) => [deal.id, deal]))
+      setDeals((current) => current.map((deal) => moved.get(deal.id) ?? deal))
+
+      const nameOf = (id: number) => deals.find((deal) => deal.id === id)?.company.name ?? `#${id}`
+      const details = [
+        // Blocked deals first: they are what needs attention.
+        ...result.results
+          .filter((r) => r.status === 'blocked')
+          .map((r) => `${nameOf(r.deal_id)}: ${describeViolation(r.violations[0]!, t, locale)}`),
+        ...result.results
+          .filter((r) => r.status === 'moved' && r.warnings.length > 0)
+          .map((r) => `${nameOf(r.deal_id)}: ${describeViolation(r.warnings[0]!, t, locale)}`),
+      ]
+      const shown = details.slice(0, 5)
+      if (details.length > shown.length) shown.push(t('deals.bulk.more', { count: details.length - shown.length }))
+
+      const stageName = t(`stage.${stage}`)
+      const title =
+        result.moved === 0 && result.blocked === 0
+          ? t('deals.bulk.nothing', { stage: stageName })
+          : result.moved === 0
+            ? t('deals.bulk.noneMoved')
+            : result.blocked > 0
+              ? t('deals.bulk.mixed', { moved: result.moved, blocked: result.blocked })
+              : result.moved === 1
+                ? t('deals.bulk.movedOne', { stage: stageName })
+                : t('deals.bulk.moved', { count: result.moved, stage: stageName })
+      const kind = result.blocked > 0 ? 'blocked' : details.length > 0 ? 'warning' : 'success'
+      setNotice({ kind, title, items: shown })
+
+      // Blocked (or unknown) deals stay selected; moved and already-there deals leave the selection.
+      return result.results.filter((r) => r.status === 'blocked' || r.status === 'not_found').map((r) => r.deal_id)
+    } catch {
+      setNotice({ kind: 'error', title: t('deals.bulk.error'), items: [] })
+      return dealIds
+    }
+  }
+
   const query = search.trim().toLowerCase()
   const visibleDeals = query
     ? deals.filter((deal) =>
@@ -116,7 +163,9 @@ export default function App() {
         </CenteredMessage>
       )}
 
-      {status === 'ready' && deals.length > 0 && route === 'deals' && <DealsPage deals={visibleDeals} />}
+      {status === 'ready' && deals.length > 0 && route === 'deals' && (
+        <DealsPage deals={visibleDeals} onBulkMove={handleBulkMove} />
+      )}
 
       {status === 'ready' && route === 'rules' && <RulesPage />}
 

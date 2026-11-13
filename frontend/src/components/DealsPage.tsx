@@ -32,14 +32,26 @@ const SORT_VALUE: Record<SortKey, (deal: Deal) => number | string> = {
   activity: (d) => d.last_touched_at ?? '',
 }
 
-/** Every deal in a sortable, filterable table. Clicking a row opens its details. */
-export default function DealsPage({ deals }: { deals: Deal[] }) {
+interface DealsPageProps {
+  deals: Deal[]
+  /** Moves the deals to a stage; resolves with the ids that did NOT move (blocked by a rule, etc.). */
+  onBulkMove: (dealIds: number[], stage: Stage) => Promise<number[]>
+}
+
+/**
+ * Every deal in a sortable, filterable table. Clicking a row opens its details; the checkboxes
+ * select several deals to move them to another stage in one go.
+ */
+export default function DealsPage({ deals, onBulkMove }: DealsPageProps) {
   const { t, locale } = useI18n()
   const [stage, setStage] = useState<Stage | 'all'>('all')
   const [owner, setOwner] = useState('all')
   const [priority, setPriority] = useState<Priority | 'all'>('all')
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'close', dir: 'asc' })
   const [openId, setOpenId] = useState<number | null>(null)
+  const [selected, setSelected] = useState<ReadonlySet<number>>(new Set())
+  const [target, setTarget] = useState<Stage | 'all'>('all') // 'all' = no stage chosen yet
+  const [moving, setMoving] = useState(false)
 
   const owners = useMemo(
     () => [...new Set(deals.map((d) => d.owner).filter((o): o is string => Boolean(o)))].sort(),
@@ -59,6 +71,9 @@ export default function DealsPage({ deals }: { deals: Deal[] }) {
   }, [deals, stage, owner, priority, sort])
 
   const total = rows.reduce((sum, d) => sum + Number(d.value), 0)
+  // Only what is on screen counts: a deal hidden by a filter is never moved by accident.
+  const selectedRows = rows.filter((d) => selected.has(d.id))
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length
   const hasFilters = stage !== 'all' || owner !== 'all' || priority !== 'all'
 
   function toggleSort(key: SortKey) {
@@ -67,6 +82,36 @@ export default function DealsPage({ deals }: { deals: Deal[] }) {
         ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
         : { key, dir: key === 'value' || key === 'priority' || key === 'activity' ? 'desc' : 'asc' },
     )
+  }
+
+  /** Replaces the selection. An empty one also forgets the chosen stage, so a new selection starts clean. */
+  function select(ids: Iterable<number>) {
+    const next = new Set(ids)
+    setSelected(next)
+    if (next.size === 0) setTarget('all')
+  }
+
+  function toggleOne(id: number) {
+    const next = new Set(selected)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    select(next)
+  }
+
+  function toggleAll() {
+    select(allSelected ? [] : rows.map((d) => d.id))
+  }
+
+  async function applyBulk() {
+    if (target === 'all' || selectedRows.length === 0) return
+    setMoving(true)
+    const notMoved = await onBulkMove(
+      selectedRows.map((d) => d.id),
+      target,
+    )
+    setMoving(false)
+    // What moved leaves the selection; what a rule blocked stays selected so it is easy to fix and retry.
+    select(notMoved)
   }
 
   function clearFilters() {
@@ -124,6 +169,45 @@ export default function DealsPage({ deals }: { deals: Deal[] }) {
         </p>
       </div>
 
+      {selectedRows.length > 0 && (
+        <div
+          role="region"
+          aria-label={t('deals.bulk.label')}
+          className="mb-3 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-primary/[0.07] px-3.5 py-2"
+        >
+          <p className="text-sm font-semibold" role="status">
+            {selectedRows.length === 1 ? t('deals.bulk.countOne') : t('deals.bulk.count', { count: selectedRows.length })}
+          </p>
+          <span className="text-sm text-muted" aria-hidden="true">
+            {t('deals.bulk.moveTo')}
+          </span>
+          <FilterSelect label={t('deals.bulk.moveTo')} value={target} onChange={(v) => setTarget(v as Stage | 'all')}>
+            <option value="all">{t('deals.bulk.choose')}</option>
+            {STAGES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {t(`stage.${s.id}`)}
+              </option>
+            ))}
+          </FilterSelect>
+          <button
+            type="button"
+            onClick={() => void applyBulk()}
+            disabled={target === 'all' || moving}
+            className="h-9 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-xs hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {t(moving ? 'deals.bulk.applying' : 'deals.bulk.apply')}
+          </button>
+          <button
+            type="button"
+            onClick={() => select([])}
+            disabled={moving}
+            className="ml-auto h-9 rounded-lg px-2 text-sm font-medium text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+          >
+            {t('deals.bulk.clear')}
+          </button>
+        </div>
+      )}
+
       {/* The table scrolls inside its card; the page itself stays fixed. */}
       <div className="scroll-thin relative min-h-0 flex-1 overflow-auto rounded-2xl border border-border/70 bg-surface shadow-[0_1px_3px_rgb(16_24_40/0.06)]">
         {rows.length === 0 ? (
@@ -141,7 +225,19 @@ export default function DealsPage({ deals }: { deals: Deal[] }) {
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-surface/95 text-left text-xs text-muted backdrop-blur">
               <tr className="border-b border-border">
-                {header('deal', 'deals.col.deal', 'pl-4')}
+                <th scope="col" className="w-10 py-2.5 pr-0 pl-4">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(box) => {
+                      if (box) box.indeterminate = selectedRows.length > 0 && !allSelected
+                    }}
+                    onChange={toggleAll}
+                    aria-label={t('deals.select.all', { count: rows.length })}
+                    className="size-4 cursor-pointer accent-primary"
+                  />
+                </th>
+                {header('deal', 'deals.col.deal', 'pl-2')}
                 {header('stage', 'deals.col.stage')}
                 {header('value', 'deals.col.value', 'text-right')}
                 {header('priority', 'deals.col.priority', 'hidden md:table-cell')}
@@ -159,9 +255,20 @@ export default function DealsPage({ deals }: { deals: Deal[] }) {
                   <tr
                     key={deal.id}
                     onClick={() => setOpenId(deal.id)}
-                    className="cursor-pointer border-b border-border/60 transition-colors duration-150 last:border-0 hover:bg-background"
+                    className={`cursor-pointer border-b border-border/60 transition-colors duration-150 last:border-0 hover:bg-background ${
+                      selected.has(deal.id) ? 'bg-primary/[0.05]' : ''
+                    }`}
                   >
-                    <td className="py-2.5 pr-3 pl-4">
+                    <td className="w-10 py-2.5 pr-0 pl-4" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(deal.id)}
+                        onChange={() => toggleOne(deal.id)}
+                        aria-label={t('deals.select.one', { title: deal.title })}
+                        className="size-4 cursor-pointer accent-primary"
+                      />
+                    </td>
+                    <td className="py-2.5 pr-3 pl-2">
                       {/* A real button so the row works with the keyboard too. */}
                       <button
                         type="button"
