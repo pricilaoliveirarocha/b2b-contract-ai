@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from app.domain import STAGE_PROBABILITY, Stage
 from app.main import app
 from app.models import Company, Contract, ContractRequirement, Deal, Rule, StageHistory
-from app.seed import DEMO_DEALS, DEMO_RULES, seed
+from app.seed import DEMO_DEALS, DEMO_RULES, reset, seed
 
 
 def test_seed_creates_demo_data(session):
@@ -70,3 +70,12 @@ def test_health_endpoint():
     response = TestClient(app).get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_reset_allows_seeding_again(session):
+    seed(session)
+    reset(session)
+
+    assert session.scalar(select(func.count(Deal.id))) == 0
+    assert seed(session) is True
+    assert session.scalar(select(func.count(Deal.id))) == len(DEMO_DEALS)

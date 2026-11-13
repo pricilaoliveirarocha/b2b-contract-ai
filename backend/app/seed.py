@@ -1,64 +1,126 @@
-"""Popula o banco com DADOS FICTÍCIOS para desenvolvimento.
+"""Load SAMPLE DATA for local development.
 
-Empresas, pessoas e valores são inventados. Não use dados reais de clientes aqui.
-Uso:  python -m app.seed
+Every company, person and amount below is invented to look like a realistic B2B
+pipeline. Any resemblance to real businesses is coincidental. Never put real
+customer data here.
+
+Usage:
+    python -m app.seed           # only seeds an empty database
+    python -m app.seed --reset   # wipes the sample tables and seeds again
 """
 
-from datetime import UTC, date, datetime, timedelta
+import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.domain import ContractStatus, Priority, RuleSeverity, RuleType, Stage
 from app.models import Company, Contract, ContractRequirement, Deal, Rule, StageHistory
 
-DEMO_OWNER = "Responsável Demo"
 
-# (empresa, segmento, área, estágio, valor, prioridade, dias até fechar)
-DEMO_DEALS: list[tuple[str, str, str, Stage, str, Priority, int]] = [
-    ("Exemplo Logística S.A.", "Logística", "Operações", Stage.DISCOVERY, "48000", Priority.MEDIUM, 120),
-    ("Demo Saúde Ltda.", "Saúde", "TI", Stage.DISCOVERY, "95000", Priority.HIGH, 150),
-    ("Fictícia Varejo", "Varejo", "Vendas", Stage.BUSINESS_CASE, "60000", Priority.LOW, 90),
-    ("Teste Energia", "Energia", "Engenharia", Stage.POC, "210000", Priority.HIGH, 75),
-    ("Modelo Seguros", "Seguros", "Jurídico", Stage.POC, "130000", Priority.MEDIUM, 80),
-    ("Amostra Bancos", "Financeiro", "Segurança", Stage.INFOSEC, "380000", Priority.HIGH, 45),
-    ("Protótipo Educação", "Educação", "Acadêmico", Stage.INFOSEC, "52000", Priority.LOW, 50),
-    ("Simulada Telecom", "Telecom", "Compras", Stage.CONTRACTS, "275000", Priority.HIGH, 20),
-    ("Ensaio Agro", "Agronegócio", "Diretoria", Stage.CONTRACTS, "88000", Priority.MEDIUM, 25),
-    ("Piloto Indústria", "Indústria", "Operações", Stage.CLOSED_WON, "420000", Priority.HIGH, -5),
-    ("Rascunho Mídia", "Mídia", "Marketing", Stage.CLOSED_LOST, "35000", Priority.LOW, -10),
+@dataclass(frozen=True)
+class DemoDeal:
+    company: str
+    segment: str
+    title: str
+    area: str
+    stage: Stage
+    value: str
+    priority: Priority
+    days_to_close: int
+    owner: str
+    notes: str | None = None
+    discount: str = "10"  # contract discount (%), used from Infosec onwards
+    infosec_done: bool = False  # security questionnaire already answered
+
+
+DEMO_DEALS: list[DemoDeal] = [
+    # Discovery
+    DemoDeal("Rota Sul Transportes", "Logistics", "Fleet telemetry rollout", "Operations",
+             Stage.DISCOVERY, "96000", Priority.MEDIUM, 120, "Camila Duarte",
+             "Inbound lead from webinar. 140 trucks across 3 hubs."),
+    DemoDeal("Clínica Horizonte Saúde", "Healthcare", "Patient scheduling automation", "IT",
+             Stage.DISCOVERY, "72000", Priority.HIGH, 140, "Rafael Moura",
+             "Requires LGPD-compliant hosting in Brazil."),
+    DemoDeal("Cooperativa Grão Forte", "Agribusiness", "Harvest forecasting pilot", "Operations",
+             Stage.DISCOVERY, "54000", Priority.LOW, 160, "Juliana Prado"),
+    # Business case
+    DemoDeal("Varejo Bem Viver", "Retail", "Omnichannel inventory sync", "Sales",
+             Stage.BUSINESS_CASE, "128000", Priority.MEDIUM, 95, "Camila Duarte",
+             "ROI model shared with the CFO; waiting on feedback."),
+    DemoDeal("Construtora Alicerce", "Construction", "Project cost tracking", "Finance",
+             Stage.BUSINESS_CASE, "84000", Priority.LOW, 100, "Lucas Ferraz"),
+    # POC
+    DemoDeal("Energia Clara Renováveis", "Energy", "Asset maintenance analytics", "Engineering",
+             Stage.POC, "215000", Priority.HIGH, 70, "Rafael Moura",
+             "POC running on 2 solar parks. Success criteria: 15% fewer site visits."),
+    DemoDeal("Seguradora Amparo", "Insurance", "Claims triage workflow", "Legal",
+             Stage.POC, "168000", Priority.MEDIUM, 75, "Juliana Prado"),
+    DemoDeal("Escola Nova Trilha", "Education", "Student retention dashboard", "Academic",
+             Stage.POC, "46000", Priority.LOW, 85, "Lucas Ferraz"),
+    # Infosec
+    DemoDeal("Banco Ipê Digital", "Financial services", "Credit risk analytics platform", "Security",
+             Stage.INFOSEC, "390000", Priority.HIGH, 45, "Camila Duarte",
+             "Security team asked for a pen test report before signing."),
+    DemoDeal("Rede Farma Vital", "Pharmacy retail", "Store replenishment forecasting", "Supply chain",
+             Stage.INFOSEC, "112000", Priority.MEDIUM, 50, "Rafael Moura",
+             "Questionnaire approved; legal review scheduled.", infosec_done=True),
+    # Contracts
+    DemoDeal("TeleConecta Fibra", "Telecom", "Field service optimization", "Procurement",
+             Stage.CONTRACTS, "275000", Priority.HIGH, 20, "Juliana Prado",
+             "Board meeting on the 10th to approve the budget.", discount="12"),
+    DemoDeal("Agro Vale Verde", "Agribusiness", "Supplier contract hub", "Executive board",
+             Stage.CONTRACTS, "88000", Priority.MEDIUM, 25, "Lucas Ferraz",
+             "Asked for 18% off to sign this quarter.", discount="18"),
+    DemoDeal("Hotel Brisa Mar", "Hospitality", "Revenue management add-on", "Commercial",
+             Stage.CONTRACTS, "64000", Priority.LOW, 15, "Camila Duarte"),
+    # Won
+    DemoDeal("Metalúrgica Forja Nobre", "Manufacturing", "Predictive maintenance suite", "Operations",
+             Stage.CLOSED_WON, "420000", Priority.HIGH, -5, "Rafael Moura",
+             "3-year agreement. Kickoff planned for next month."),
+    DemoDeal("Laboratório Precisa", "Diagnostics", "Sample tracking module", "IT",
+             Stage.CLOSED_WON, "98000", Priority.MEDIUM, -12, "Juliana Prado", discount="8"),
+    # Lost
+    DemoDeal("Agência Pixel Norte", "Media", "Campaign performance reporting", "Marketing",
+             Stage.CLOSED_LOST, "35000", Priority.LOW, -10, "Lucas Ferraz",
+             "Chose to build in-house."),
+    DemoDeal("Expressa Cerrado Logística", "Logistics", "Route planning", "Operations",
+             Stage.CLOSED_LOST, "142000", Priority.MEDIUM, -20, "Camila Duarte",
+             "Budget frozen for the fiscal year."),
 ]
 
 DEMO_RULES: list[dict] = [
     {
-        "name": "DPA assinado antes de fechar",
-        "description": "Contrato só pode ir para Closed/Won com o DPA (LGPD) assinado.",
+        "name": "Signed DPA before closing",
+        "description": "A deal can only be marked Won once the DPA (LGPD) is signed.",
         "rule_type": RuleType.REQUIREMENT_DONE,
         "target_stage": Stage.CLOSED_WON,
         "severity": RuleSeverity.BLOCK,
         "params": {"requirement_kind": "dpa"},
     },
     {
-        "name": "Questionário de segurança antes de Contratos",
-        "description": "Deals só avançam para Contratos/Negociação após o questionário de InfoSec.",
+        "name": "Security questionnaire before Contracts",
+        "description": "Deals only move to Contracts after the infosec questionnaire is answered.",
         "rule_type": RuleType.REQUIREMENT_DONE,
         "target_stage": Stage.CONTRACTS,
         "severity": RuleSeverity.BLOCK,
         "params": {"requirement_kind": "security_questionnaire"},
     },
     {
-        "name": "Desconto acima de 15%",
-        "description": "Descontos acima do padrão geram alerta para revisão comercial.",
+        "name": "Discount above 15%",
+        "description": "Discounts above the standard limit are flagged for commercial review.",
         "rule_type": RuleType.MAX_DISCOUNT,
         "target_stage": Stage.CLOSED_WON,
         "severity": RuleSeverity.WARN,
         "params": {"max_percent": 15},
     },
     {
-        "name": "Aprovação da diretoria acima de R$ 250 mil",
-        "description": "Contratos de valor alto exigem aprovação registrada antes de fechar.",
+        "name": "Board approval above R$ 250k",
+        "description": "High-value contracts need a recorded board approval before closing.",
         "rule_type": RuleType.APPROVAL_ABOVE_VALUE,
         "target_stage": Stage.CLOSED_WON,
         "severity": RuleSeverity.BLOCK,
@@ -67,16 +129,18 @@ DEMO_RULES: list[dict] = [
 ]
 
 REQUIREMENT_LABELS = {
-    "dpa": "DPA (acordo de tratamento de dados) assinado",
-    "security_questionnaire": "Questionário de segurança respondido",
-    "board_approval": "Aprovação da diretoria",
+    "dpa": "Signed DPA (data processing agreement)",
+    "security_questionnaire": "Security questionnaire answered",
+    "board_approval": "Board approval",
 }
 
+BOARD_APPROVAL_THRESHOLD = Decimal("250000")
 STAGE_ORDER = [Stage.DISCOVERY, Stage.BUSINESS_CASE, Stage.POC, Stage.INFOSEC, Stage.CONTRACTS]
+CONTRACT_STAGES = (Stage.INFOSEC, Stage.CONTRACTS, Stage.CLOSED_WON)
 
 
 def seed(session: Session) -> bool:
-    """Insere os dados de demonstração. Retorna False se o banco já tiver dados."""
+    """Insert the sample data. Returns False if the database already has data."""
     if session.scalar(select(Company.id).limit(1)) is not None:
         return False
 
@@ -86,56 +150,68 @@ def seed(session: Session) -> bool:
     for rule_data in DEMO_RULES:
         session.add(Rule(**rule_data))
 
-    for index, (name, segment, area, stage, value, priority, days) in enumerate(DEMO_DEALS):
-        company = Company(name=name, segment=segment)
+    for index, demo in enumerate(DEMO_DEALS):
+        value = Decimal(demo.value)
         deal = Deal(
-            company=company,
-            title=f"{name} ({area})",
-            area=area,
-            stage=stage,
-            value=Decimal(value),
-            priority=priority,
-            close_date=today + timedelta(days=days),
-            owner=DEMO_OWNER,
-            last_touched_at=now - timedelta(days=index * 3),
+            company=Company(name=demo.company, segment=demo.segment),
+            title=demo.title,
+            area=demo.area,
+            stage=demo.stage,
+            value=value,
+            priority=demo.priority,
+            close_date=today + timedelta(days=demo.days_to_close),
+            owner=demo.owner,
+            last_touched_at=now - timedelta(days=index % 9, hours=index * 5),
+            notes=demo.notes,
         )
 
-        # Histórico: percorre os estágios até o atual.
-        path = _stage_path(stage)
+        # History: walk through every stage up to the current one.
+        path = _stage_path(demo.stage)
+        # Spread over months like a real pipeline: deals further along were created earlier,
+        # each stage lasts 2-4 weeks, and the last move happened a few days ago.
+        last_move_days_ago = 4 + (index % 6) * 3
+        days_per_stage = 16 + (index % 3) * 5
         previous: Stage | None = None
         for step, to_stage in enumerate(path):
+            stages_after = len(path) - 1 - step
             deal.stage_history.append(
                 StageHistory(
                     from_stage=previous,
                     to_stage=to_stage,
-                    changed_at=now - timedelta(days=(len(path) - step) * 7),
-                    changed_by=DEMO_OWNER,
+                    changed_at=now - timedelta(days=last_move_days_ago + stages_after * days_per_stage),
+                    changed_by=demo.owner,
                 )
             )
             previous = to_stage
 
-        # Checklist e contrato a partir de InfoSec.
-        if stage in (Stage.INFOSEC, Stage.CONTRACTS, Stage.CLOSED_WON):
-            past_infosec = stage != Stage.INFOSEC
+        # Checklist and contract terms exist from Infosec onwards.
+        if demo.stage in CONTRACT_STAGES:
+            won = demo.stage == Stage.CLOSED_WON
+            past_infosec = demo.stage != Stage.INFOSEC or demo.infosec_done
             deal.requirements.append(_requirement("security_questionnaire", done=past_infosec, now=now))
-            deal.requirements.append(_requirement("dpa", done=stage == Stage.CLOSED_WON, now=now))
-            if Decimal(value) >= 250000:
-                deal.requirements.append(
-                    _requirement("board_approval", done=stage == Stage.CLOSED_WON, now=now)
-                )
+            deal.requirements.append(_requirement("dpa", done=won, now=now))
+            if value >= BOARD_APPROVAL_THRESHOLD:
+                deal.requirements.append(_requirement("board_approval", done=won, now=now))
             deal.contract = Contract(
-                status=ContractStatus.SIGNED if stage == Stage.CLOSED_WON else ContractStatus.IN_REVIEW,
-                total_value=Decimal(value),
-                duration_months=12 if index % 2 else 24,
-                start_date=today + timedelta(days=max(days, 0) + 15),
-                payment_terms="Mensal, 30 dias após emissão da nota",
-                discount_percent=Decimal("18") if stage == Stage.CONTRACTS and index % 2 == 0 else Decimal("10"),
+                status=ContractStatus.SIGNED if won else ContractStatus.IN_REVIEW,
+                total_value=value,
+                duration_months=36 if value >= BOARD_APPROVAL_THRESHOLD else 12,
+                start_date=today + timedelta(days=max(demo.days_to_close, 0) + 15),
+                payment_terms="Monthly invoicing, net 30",
+                discount_percent=Decimal(demo.discount),
             )
 
         session.add(deal)
 
     session.commit()
     return True
+
+
+def reset(session: Session) -> None:
+    """Delete all sample data (children first, to respect foreign keys)."""
+    for model in (StageHistory, ContractRequirement, Contract, Deal, Company, Rule):
+        session.execute(delete(model))
+    session.commit()
 
 
 def _stage_path(stage: Stage) -> list[Stage]:
@@ -157,5 +233,8 @@ def _requirement(kind: str, *, done: bool, now: datetime) -> ContractRequirement
 
 if __name__ == "__main__":
     with SessionLocal() as db:
+        if "--reset" in sys.argv:
+            reset(db)
+            print("Sample data removed.")
         created = seed(db)
-    print("Dados fictícios inseridos." if created else "Banco já possui dados; nada foi alterado.")
+    print("Sample data loaded." if created else "Database already has data; nothing changed.")

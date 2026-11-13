@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
+from app.routers import deals, stats
 
 app = FastAPI(title="b2b-contract-ai", version="0.1.0")
 
@@ -16,3 +17,7 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+app.include_router(deals.router)
+app.include_router(stats.router)

@@ -1,19 +1,52 @@
 @import 'tailwindcss';
 
-/* Tokens visuais do CRM: use estas classes (bg-surface, text-muted...) em vez de cores soltas. */
+/* Design tokens: use these classes (bg-surface, text-muted...) instead of raw colors. */
 @theme {
-  --color-background: #f7f7f5;
+  --color-background: #f4f6fb;
   --color-surface: #ffffff;
-  --color-border: #e6e6e3;
-  --color-ink: #1f2328;
-  --color-muted: #6b7076;
+  --color-border: #e4e8f0;
+  --color-ink: #1b2233;
+  --color-muted: #667085;
   --color-primary: #2f6fdf;
-  --color-success: #2e9e6a;
-  --color-warning: #c98a16;
-  --color-danger: #d14b4b;
+  --color-success: #1f7a52;
+  /* Accents for icons and stage tints (not for small text). */
+  --color-violet: #7a5af8;
+  --color-teal: #0e9384;
+  --color-orange: #f38744;
+  --color-win: #22a06b;
+  /* Warning and danger are dark enough for small text on white (WCAG AA). */
+  --color-warning: #9a6200;
+  --color-danger: #c23b3b;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 body {
   @apply bg-background text-ink antialiased;
+  font-feature-settings: 'tnum'; /* aligned numbers in money columns */
+}
+
+/* Discreet scrollbars for the board and columns. */
+@utility scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted) 35%, transparent) transparent;
+}
+
+/* Still scrollable (swipe/trackpad), but without a visible bar. */
+@utility scroll-none {
+  scrollbar-width: none;
+}
+
+/* Soft fade at the bottom edge, hinting that more content may be below. */
+@utility fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }

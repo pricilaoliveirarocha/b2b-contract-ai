@@ -1,0 +1,144 @@
+// UI strings in every supported language. Data from the API (names, rule messages) is not translated here.
+
+export type Locale = 'en' | 'pt-BR'
+
+export const LOCALES: { id: Locale; short: string; name: string }[] = [
+  { id: 'en', short: 'EN', name: 'English' },
+  { id: 'pt-BR', short: 'PT', name: 'Português (Brasil)' },
+]
+
+const en = {
+  'nav.pipeline': 'Pipeline',
+  'nav.main': 'Main',
+  'lang.label': 'Language',
+  'lang.switch': 'Mudar para português (Brasil)',
+  'search.label': 'Search deals',
+  'search.placeholder': 'Search deal, company, owner',
+  'search.results': '{count} of {total} deals match “{query}”',
+  'search.empty': 'No deals match your search.',
+  'search.clear': 'Clear search',
+  'stats.label': 'Pipeline summary',
+  'stats.open': 'Open pipeline',
+  'stats.weighted': 'Weighted forecast',
+  'stats.won': 'Won',
+  'stats.openDeals': 'Open deals',
+  'stats.trendVs': 'vs. {weeks} weeks ago',
+  'nav.deals': 'Deals',
+  'nav.analytics': 'Analytics',
+  'nav.settings': 'Settings',
+  'nav.soon': 'Coming soon',
+  'hint.desktop': 'Drag a deal to another stage. Contract rules are checked on every move.',
+  'state.loading': 'Loading deals…',
+  'state.error': 'Could not load deals. Make sure the API is running at http://localhost:8000.',
+  'state.emptyBefore': 'No deals yet. Run',
+  'state.emptyAfter': 'to load sample data.',
+  'notice.moved': '{company} moved to {stage}',
+  'notice.movedWithWarnings': '{company} moved to {stage} with warnings',
+  'notice.blocked': "{company} can't move to {stage} yet",
+  'notice.error': 'Could not save the change. Please try again.',
+  'notice.dismiss': 'Dismiss message',
+  'column.drop': 'Drop deals here',
+  'card.dragHint': '{title}, {company}. Press space to move it to another stage.',
+  'card.overdue': 'Overdue',
+  'card.priority': 'priority',
+  'priority.high': 'High',
+  'priority.medium': 'Medium',
+  'priority.low': 'Low',
+  'stageInfo.ask': 'What is {stage}?',
+  'stageInfo.probability': 'Typical win probability:',
+  'stage.discovery': 'Discovery',
+  'stage.business_case': 'Business case',
+  'stage.poc': 'POC',
+  'stage.infosec': 'Infosec',
+  'stage.contracts': 'Contracts',
+  'stage.closed_won': 'Won',
+  'stage.closed_lost': 'Lost',
+  'stageInfo.discovery':
+    'First conversations with the customer. Understand the problem, who makes the decision, and whether there is budget and timing to buy.',
+  'stageInfo.business_case':
+    'Build the value story: expected results, costs and ROI, shared with the people who approve the purchase.',
+  'stageInfo.poc':
+    'Proof of concept. The customer tests the solution with their own data against success criteria agreed in advance.',
+  'stageInfo.infosec':
+    "The customer's security team reviews the solution: security questionnaire, data protection (LGPD) and compliance.",
+  'stageInfo.contracts':
+    'Negotiate the final terms: price, discount, duration and legal review. Contract rules are checked before the deal can close.',
+  'violation.requirement_missing': 'Missing from the checklist: {requirement}',
+  'violation.requirement_not_done': 'Still pending: {requirement}',
+  'violation.discount_above_limit': 'Discount of {discount}% is above the {max}% limit',
+  'requirement.dpa': 'Signed DPA (data processing agreement)',
+  'requirement.security_questionnaire': 'Security questionnaire answered',
+  'requirement.board_approval': 'Board approval',
+}
+
+export type MessageKey = keyof typeof en
+
+const ptBR: Record<MessageKey, string> = {
+  'nav.pipeline': 'Pipeline',
+  'nav.main': 'Principal',
+  'lang.label': 'Idioma',
+  'lang.switch': 'Switch to English',
+  'search.label': 'Buscar deals',
+  'search.placeholder': 'Buscar deal, empresa, pessoa',
+  'search.results': '{count} de {total} deals correspondem a “{query}”',
+  'search.empty': 'Nenhum deal corresponde à busca.',
+  'search.clear': 'Limpar busca',
+  'stats.label': 'Resumo do pipeline',
+  'stats.open': 'Pipeline aberto',
+  'stats.weighted': 'Previsão ponderada',
+  'stats.won': 'Ganhos',
+  'stats.openDeals': 'Deals abertos',
+  'stats.trendVs': 'vs. {weeks} semanas atrás',
+  'nav.deals': 'Deals',
+  'nav.analytics': 'Análises',
+  'nav.settings': 'Ajustes',
+  'nav.soon': 'Em breve',
+  'hint.desktop': 'Arraste um deal para outra etapa. As regras de contrato são verificadas a cada movimento.',
+  'state.loading': 'Carregando deals…',
+  'state.error': 'Não foi possível carregar os deals. Verifique se a API está rodando em http://localhost:8000.',
+  'state.emptyBefore': 'Ainda não há deals. Rode',
+  'state.emptyAfter': 'para carregar os dados de exemplo.',
+  'notice.moved': '{company} movido para {stage}',
+  'notice.movedWithWarnings': '{company} movido para {stage} com avisos',
+  'notice.blocked': '{company} ainda não pode ir para {stage}',
+  'notice.error': 'Não foi possível salvar a mudança. Tente novamente.',
+  'notice.dismiss': 'Fechar mensagem',
+  'column.drop': 'Solte deals aqui',
+  'card.dragHint': '{title}, {company}. Pressione espaço para mover para outra etapa.',
+  'card.overdue': 'Atrasado',
+  'card.priority': 'prioridade',
+  'priority.high': 'Alta',
+  'priority.medium': 'Média',
+  'priority.low': 'Baixa',
+  'stageInfo.ask': 'O que é {stage}?',
+  'stageInfo.probability': 'Probabilidade típica de ganho:',
+  'stage.discovery': 'Descoberta',
+  'stage.business_case': 'Caso de negócio',
+  'stage.poc': 'POC',
+  'stage.infosec': 'Segurança',
+  'stage.contracts': 'Contratos',
+  'stage.closed_won': 'Ganho',
+  'stage.closed_lost': 'Perdido',
+  'stageInfo.discovery':
+    'Primeiras conversas com o cliente. Entender o problema, quem decide e se há orçamento e prazo para a compra.',
+  'stageInfo.business_case':
+    'Montar a proposta de valor: resultados esperados, custos e ROI, apresentados a quem aprova a compra.',
+  'stageInfo.poc':
+    'Prova de conceito. O cliente testa a solução com os próprios dados, com critérios de sucesso combinados antes.',
+  'stageInfo.infosec':
+    'O time de segurança do cliente avalia a solução: questionário de segurança, proteção de dados (LGPD) e conformidade.',
+  'stageInfo.contracts':
+    'Negociar os termos finais: preço, desconto, duração e revisão jurídica. As regras de contrato são verificadas antes de fechar.',
+  'violation.requirement_missing': 'Falta no checklist: {requirement}',
+  'violation.requirement_not_done': 'Ainda pendente: {requirement}',
+  'violation.discount_above_limit': 'Desconto de {discount}% acima do limite de {max}%',
+  'requirement.dpa': 'DPA assinado (acordo de tratamento de dados)',
+  'requirement.security_questionnaire': 'Questionário de segurança respondido',
+  'requirement.board_approval': 'Aprovação da diretoria',
+}
+
+export const MESSAGES: Record<Locale, Record<MessageKey, string>> = { en, 'pt-BR': ptBR }
+
+export function isMessageKey(key: string): key is MessageKey {
+  return key in en
+}

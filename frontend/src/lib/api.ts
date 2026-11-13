@@ -1,8 +1,30 @@
-// Camada única de acesso à API. Todas as chamadas HTTP passam por aqui.
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`/api${path}`, { headers: { Accept: 'application/json' } })
-  if (!response.ok) {
-    throw new Error(`Erro ${response.status} ao acessar ${path}`)
+// Single access layer for the API. Every HTTP call goes through here.
+
+export class ApiError extends Error {
+  readonly status: number
+  readonly body: unknown
+
+  constructor(status: number, body: unknown) {
+    super(`API error ${status}`)
+    this.status = status
+    this.body = body
   }
-  return (await response.json()) as T
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (init.body !== undefined) headers['Content-Type'] = 'application/json'
+
+  const response = await fetch(`/api${path}`, { ...init, headers })
+  const body: unknown = await response.json().catch(() => null)
+  if (!response.ok) throw new ApiError(response.status, body)
+  return body as T
+}
+
+export function apiGet<T>(path: string): Promise<T> {
+  return request<T>(path)
+}
+
+export function apiPatch<T>(path: string, data: unknown): Promise<T> {
+  return request<T>(path, { method: 'PATCH', body: JSON.stringify(data) })
 }
